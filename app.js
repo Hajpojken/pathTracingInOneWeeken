@@ -57,12 +57,11 @@ function render(nx, ny, scene, cam){
       }
       ctx.putImageData( id, i, ny-j );
     }
-    //console.log(((ny-j)/ny)*100 + " %")
   }
   frames.innerHTML = "Frames: " + loops
   rendertime.innerHTML = "Last frame: " + (Date.now() - time)/1000 + "s"
   loops+=1
-  mix = mix/1.05
+  mix = 1/(loops+1)
 
   window.requestAnimationFrame(() => render(nx, ny, scene, cam))
 }
