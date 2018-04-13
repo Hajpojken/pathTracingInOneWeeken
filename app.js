@@ -1,48 +1,70 @@
 //main
-function main () {
-  var c = document.getElementById("canvas")
-  var ctx = c.getContext("2d")
-  var id = ctx.createImageData(1,1)
-  var d  = id.data
-  d[3]   = 255;
+var c = document.getElementById("canvas")
+var ctx = c.getContext("2d")
+var id = ctx.createImageData(1,1)
+var d  = id.data
+d[3]   = 255
+var mix = 0.500000000
 
-  var nx = 400
-  var ny = 200
-  var ns = 100
+var frames = document.getElementById("progress")
+var loops = 1
+
+var rendertime = document.getElementById('time')
+
+function main () {
+  var nx = 200
+  var ny = 100
 
   var cam = new camera()
 
   var objects = []
-
   objects[0] = new sphere(new vec3([0,-100.5,-1]), 100, new lambertian(new vec3([0.8, 0.8, 0.0])))
-  objects[1] = new sphere(new vec3([-1,0,-1]), 0.5, new metalMaterial(new vec3([0.8, 0.8, 0.8]), 0.3))
-  objects[2] = new sphere(new vec3([1,0,-1]), 0.5, new metalMaterial(new vec3([0.8, 0.6, 0.2]), 0.1))
+  objects[2] = new sphere(new vec3([-1,0,-1]), 0.5, new metalMaterial(new vec3([0.8, 0.8, 0.8]), 0))
+  objects[1] = new sphere(new vec3([1,0,-1]), 0.5, new metalMaterial(new vec3([0.8, 0.6, 0.2]), 0.1))
   objects[3] = new sphere(new vec3([0,0,-1]), 0.5, new lambertian(new vec3([0.8, 0.3, 0.3])))
 
+  render(nx, ny, objects, cam)
+}
 
+function render(nx, ny, scene, cam){
+  var time = Date.now()
   for (var j = ny-1; j >= 0; j--) {
     for (var i = 0; i < nx; i++) {
       var col = new vec3([0,0,0])
-      for (var s = 0; s < ns; s++) {
-        var u = (i + Math.random())/nx
-        var v = (j + Math.random())/ny
-        var r = cam.getRay(u,v)
-        var tmp = col
-        var col = addVec3(color(r, objects, 0), tmp)
-      }
-
-      col = divConst(col,ns)
+      var u = (i + Math.random())/nx
+      var v = (j + Math.random())/ny
+      var r = cam.getRay(u,v)
+      var tmp = col
+      var col = addVec3(color(r, scene, 0), tmp)
 
       var ir = Math.floor(255.99 * Math.sqrt(col.x))
       var ig = Math.floor(255.99 * Math.sqrt(col.y))
       var ib = Math.floor(255.99 * Math.sqrt(col.z))
 
-      d[0]   = ir;
-      d[1]   = ig;
-      d[2]   = ib;
+      if (loops != 1){
+        var p = ctx.getImageData(i, ny-j, 1, 1).data;
+        var r = p[0]
+        var g = p[1]
+        var b = p[2]
+        d[0] = ir*mix + r*(1-mix)
+        d[1] = ig*mix + g*(1-mix)
+        d[2] = ib*mix + b*(1-mix)
+      }
+      else {
+        d[0] = ir
+        d[1] = ig
+        d[2] = ib
+      }
       ctx.putImageData( id, i, ny-j );
     }
+    //console.log(((ny-j)/ny)*100 + " %")
   }
+  frames.innerHTML = "Frames: " + loops
+  rendertime.innerHTML = "Last frame: " + (Date.now() - time)/1000 + "s"
+  loops+=1
+  mix = mix/1.05
+
+  window.requestAnimationFrame(() => render(nx, ny, scene, cam))
 }
 
 //vector constructor
