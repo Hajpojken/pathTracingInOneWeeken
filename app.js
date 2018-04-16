@@ -1,10 +1,11 @@
 //main
 var c = document.getElementById("canvas")
 var ctx = c.getContext("2d")
-var id = ctx.createImageData(1,1)
-var d  = id.data
-d[3]   = 255
-var mix = 0.500000000
+var mix = 0.50000
+var nx = 1000
+var ny = 500
+var passes = 3
+var id = ctx.createImageData(nx,ny)
 
 var frames = document.getElementById("progress")
 var loops = 1
@@ -12,88 +13,85 @@ var loops = 1
 var rendertime = document.getElementById('time')
 
 function main () {
-  var nx = 200
-  var ny = 100
-
   var cam = new camera()
-
   var objects = []
   objects[0] = new sphere(new vec3([0,-100.5,-1]), 100, new lambertian(new vec3([0.8, 0.8, 0.0])))
-  objects[2] = new sphere(new vec3([-1,0,-1]), 0.5, new metalMaterial(new vec3([0.8, 0.8, 0.8]), 0))
-  objects[1] = new sphere(new vec3([1,0,-1]), 0.5, new metalMaterial(new vec3([0.8, 0.6, 0.2]), 0.1))
+  objects[2] = new sphere(new vec3([-1,0,-1]), 0.5, new metalMaterial(new vec3([0.8, 0.8, 0.8]), 0.3))
+  objects[1] = new sphere(new vec3([1,0,-1]), 0.5, new metalMaterial(new vec3([1.0, 0.6, 0.2]), 1.0))
   objects[3] = new sphere(new vec3([0,0,-1]), 0.5, new lambertian(new vec3([0.8, 0.3, 0.3])))
-
   render(nx, ny, objects, cam)
 }
 
-function render(nx, ny, scene, cam){
+function render(nx, ny, scene, cam, old){
   var time = Date.now()
-  for (var j = ny-1; j >= 0; j--) {
+  var image = []
+  for (var j = 0; j < ny; j++) {
     for (var i = 0; i < nx; i++) {
       var col = new vec3([0,0,0])
-      var u = (i + Math.random())/nx
-      var v = (j + Math.random())/ny
-      var r = cam.getRay(u,v)
-      var tmp = col
-      var col = addVec3(color(r, scene, 0), tmp)
+      for (var s = 0; s < passes; s++){
+        var u = (i + Math.random())/nx
+        var v = (j + Math.random())/ny
+        var r = cam.getRay(u,v)
+        var tmp = col
+        var col = addVec3(color(r, scene, 0), tmp)
+      }
+      col = divConst(col, passes)
 
       var ir = Math.floor(255.99 * Math.sqrt(col.x))
-      var ig = Math.floor(255.99 * Math.sqrt(col.y))
-      var ib = Math.floor(255.99 * Math.sqrt(col.z))
+      var ib = Math.floor(255.99 * Math.sqrt(col.y))
+      var ig = Math.floor(255.99 * Math.sqrt(col.z))
+
+      var tmpArr = []
 
       if (loops != 1){
-        var p = ctx.getImageData(i, ny-j, 1, 1).data;
-        var r = p[0]
-        var g = p[1]
-        var b = p[2]
-        d[0] = ir*mix + r*(1-mix)
-        d[1] = ig*mix + g*(1-mix)
-        d[2] = ib*mix + b*(1-mix)
+        tmpArr[0] = ir*mix + old[j*nx + i][0]*(1-mix)
+        tmpArr[1] = ib*mix + old[j*nx + i][1]*(1-mix)
+        tmpArr[2] = ig*mix + old[j*nx + i][2]*(1-mix)
+        tmpArr[3] = 255
+        image.push(tmpArr)
       }
+
       else {
-        d[0] = ir
-        d[1] = ig
-        d[2] = ib
+        tmpArr[0] = ir
+        tmpArr[1] = ib
+        tmpArr[2] = ig
+        tmpArr[3] = 255
+        image.push(tmpArr)
       }
-      ctx.putImageData( id, i, ny-j );
     }
   }
+  for(var k = 0; k<id.data.length; k+=4){
+    var l = k/4
+    id.data[k+0] = image[image.length - l - 1][0]
+    id.data[k+1] = image[image.length - l - 1][1]
+    id.data[k+2] = image[image.length - l - 1][2]
+    id.data[k+3] = image[image.length - l - 1][3]
+  }
+
+  ctx.putImageData(id, 0, 0)
   frames.innerHTML = "Frames: " + loops
   rendertime.innerHTML = "Last frame: " + (Date.now() - time)/1000 + "s"
+
   loops+=1
   mix = 1/(loops+1)
 
-  window.requestAnimationFrame(() => render(nx, ny, scene, cam))
+  window.requestAnimationFrame(() => render(nx, ny, scene, cam, image))
 }
 
 //vector constructor
 function vec3 (v) {
-  this.x = v[0] || 0
-  this.y = v[1] || 0
-  this.z = v[2] || 0
-
-  this.vec = [this.x,this.y,this.z]
-
-  this.setX = function(t){
-    this.x = t
-  }
-  this.setY = function(t){
-    this.y = t
-  }
-  this.setZ = function(t){
-    this.z = t
-  }
+  this.x = v[0]
+  this.y = v[1]
+  this.z = v[2]
 }
 
 //materials
 function lambertian(albedo){
   this.attenuation = albedo || new vec3([1.0, 1.0, 1.0])
-
   this.scatter = function(r){
     var target = addVec3(addVec3(record.p, record.normal),randomInUnitSphere())
     var tmp = subVec3(target, record.p)
-    var scattered = new ray(record.p, tmp)
-    return scattered
+    return new ray(record.p, tmp)
   }
 }
 
@@ -105,16 +103,12 @@ function metalMaterial(albedo, fuzz){
     var reflected = reflect(unitVector(r.direction), record.normal)
     var a = multConst(randomInUnitSphere(), fuzz)
     var tmp = addVec3(reflected, a)
-    var scattered = new ray(record.p, tmp)
-    return scattered
+    return new ray(record.p, tmp)
   }
 }
 
 function reflect(vec3a, vec3b){
-  var a = 2 * dot(vec3a, vec3b)
-  var b = multConst(vec3b,a)
-  var c = subVec3(vec3a, b)
-  return c
+  return subVec3(vec3a, multConst(vec3b, 2 * dot(vec3a, vec3b)))
 }
 
 //camera
@@ -134,8 +128,7 @@ function color(r, scene, depth){
   if (hitSomething) {
     if (depth < 50) {
       var scattered = record.mat.scatter(r)
-      var temp = multVec3(record.mat.attenuation, color(scattered, scene, depth + 1))
-      return temp
+      return multVec3(record.mat.attenuation, color(record.mat.scatter(r), scene, depth + 1))
     }
     else {
       return new vec3(0,0,0)
@@ -144,9 +137,7 @@ function color(r, scene, depth){
   else {
     var unitDirection = unitVector(r.direction)
     var t = 0.5 * (unitDirection.y + 1.0)
-    var b = new vec3([1.0, 1.0, 1.0])
-    var c = new vec3([0.5, 0.7, 1.0])
-    return addVec3(multConst(b, (1.0-t)), multConst(c, t))
+    return addVec3(multConst(new vec3([1.0, 1.0, 1.0]), (1.0-t)), multConst(new vec3([0.5, 0.7, 1.0]), t))
   }
 }
 
@@ -184,15 +175,12 @@ function createHitRecord(t,p, normal, mat){
   this.setT = function(vec){
     this.t = vec
   }
-
   this.setP = function(vec){
     this.p = vec
   }
-
   this.setNormal = function(vec){
     this.normal = vec
   }
-
   this.setMat = function(vec){
     this.mat = vec
   }
@@ -287,8 +275,7 @@ squared = function(vec) {
 }
 
 makeUnitVector = function(vec) {
-  var length = length(vec)
-  return divConst(vec, length)
+  return divConst(vec, length(vec))
 }
 
 dot = function(vec3a, vec3b){
