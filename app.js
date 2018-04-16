@@ -4,7 +4,7 @@ var ctx = c.getContext("2d")
 var mix = 0.50000
 var nx = 800
 var ny = 400
-var passes = 3
+var passes = 1
 var id = ctx.createImageData(nx,ny)
 
 var frames = document.getElementById("progress")
