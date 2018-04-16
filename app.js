@@ -4,7 +4,7 @@ var ctx = c.getContext("2d")
 var mix = 0.50000
 var nx = 800
 var ny = 400
-var passes = 1
+var passes = 5
 var id = ctx.createImageData(nx,ny)
 
 var frames = document.getElementById("progress")
@@ -16,8 +16,8 @@ function main () {
   var cam = new camera()
   var objects = []
   objects[0] = new sphere(new vec3([0,-100.5,-1]), 100, new lambertian(new vec3([0.8, 0.8, 0.0])))
-  objects[2] = new sphere(new vec3([-1,0,-1]), 0.5, new metalMaterial(new vec3([0.8, 0.8, 0.8]), 0.3))
-  objects[1] = new sphere(new vec3([1,0,-1]), 0.5, new metalMaterial(new vec3([1.0, 0.6, 0.2]), 1.0))
+  objects[2] = new sphere(new vec3([-1,0,-1]), 0.5, new metalMaterial(new vec3([0.8, 0.8, 0.8]), 0.0))
+  objects[1] = new sphere(new vec3([1,0,-1]), 0.5, new metalMaterial(new vec3([1.0, 0.6, 0.2]), 0.2))
   objects[3] = new sphere(new vec3([0,0,-1]), 0.5, new lambertian(new vec3([0.8, 0.3, 0.3])))
   render(nx, ny, objects, cam)
 }
