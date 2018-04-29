@@ -1,10 +1,9 @@
-//main
 var c = document.getElementById("canvas")
 var ctx = c.getContext("2d")
 var mix = 0.50000
 var nx = 800
 var ny = 400
-var passes = 1
+var passes = 100
 var id = ctx.createImageData(nx,ny)
 
 var frames = document.getElementById("progress")
@@ -16,10 +15,10 @@ function main () {
   var cam = new camera()
   var objects = []
   objects[0] = new sphere(new vec3([0,-100.5,-1]), 100, new lambertian(new vec3([0.8, 0.8, 0.0])))
-  //objects[2] = new sphere(new vec3([-1,0,-1]), 0.5, new dieletric(1.5))
-  //objects[1] = new sphere(new vec3([-1,0,-1]), -0.45, new dieletric(1.5))
-  objects[1] = new sphere(new vec3([1,0,-1]), 0.5, new metalMaterial(new vec3([1.0, 0.6, 0.2]), 0.1))
-  objects[2] = new sphere(new vec3([0,0,-1]), 0.5, new lambertian(new vec3([0.8, 0.3, 0.3])))
+  objects[2] = new sphere(new vec3([-1,0,-1]), 0.5, new dieletric(1.5))
+  objects[1] = new sphere(new vec3([-1,0,-1]), -0.45, new dieletric(1.5))
+  objects[3] = new sphere(new vec3([1,0,-1]), 0.5, new metalMaterial(new vec3([0.8, 0.6, 0.2]), 0))
+  objects[4] = new sphere(new vec3([0,0,-1]), 0.5, new lambertian(new vec3([0.1, 0.2, 0.5])))
   render(nx, ny, objects, cam)
 }
 
@@ -91,13 +90,19 @@ function lambertian(albedo){
   this.scatter = function(r){
     var target = addVec3(addVec3(record.p, record.normal),randomInUnitSphere())
     var tmp = subVec3(target, record.p)
-    return new ray(record.p, tmp)
+    var scattered = new ray(record.p, tmp)
+    return scattered
   }
 }
 
 function metalMaterial(albedo, fuzz){
   this.attenuation = albedo || new vec3([1.0, 1.0, 1.0])
-  this.fuzz = fuzz || 0
+  if(fuzz < 1){
+    this.fuzz = fuzz
+  }
+  else{
+    this.fuzz = 0
+  }
 
   this.scatter = function(r){
     var reflected = reflect(unitVector(r.direction), record.normal)
@@ -107,41 +112,35 @@ function metalMaterial(albedo, fuzz){
     if(dot(scattered.direction, record.normal) > 0){
       return scattered
     }
-    return false
   }
 }
 
-function reflect(vec3a, vec3b){
-  var a = dot(vec3a, vec3b)
-  var b = multConst(vec3b, 2*a)
-  return subVec3(vec3a, b)
-}
-
-function dieletric(snell){
-  this.snell = snell
-  this.attenuation = new vec3([1.0, 1.0, 0.0])
+function dieletric(ri){
+  this.snell = ri
+  this.attenuation = new vec3([1.0, 1.0, 1.0])
   this.scatter = function(r){
-    var tmp = dot(r.direction, record.normal)
-    if(tmp > 0){
+    if(dot(r.direction, record.normal) > 0){
       var outwardNormal = new vec3([-record.normal.x, -record.normal.y, -record.normal.z])
-      var niOverNt = snell
-      var cosine = snell * dot(r.direction, record.normal) / length(r.direction)
+      var niOverNt = ri
+      var cosine = ri * dot(r.direction, record.normal) / length(r.direction)
     }
     else{
       var outwardNormal = record.normal
-      var niOverNt = 1.0/snell
-      var cosine = -dot(r.direction, record.normal) / length(r.direction)
+      var niOverNt = 1.0/ri
+      var cosine = (-dot(r.direction, record.normal)) / length(r.direction)
     }
-    var refracted = refract(r.direction, outwardNormal, niOverNt)
-    var reflected = reflect(unitVector(r.direction), record.normal)
 
-    if(refracted != false){
-      var reflect_prob = schlick(cosine, snell)
+    var refracted = refract(r.direction, outwardNormal, niOverNt)
+
+    if(refracted){
+      var reflect_prob = schlick(cosine, ri)
     }
     else{
       var reflect_prob = 1.0
     }
+
     if(Math.random() < reflect_prob){
+      var reflected = reflect(r.direction, record.normal)
       scattered = new ray(record.p, reflected)
     }
     else {
@@ -154,20 +153,29 @@ function dieletric(snell){
 function refract(v, n, niOverNt){
   var uv = unitVector(v)
   var dt = dot(uv, n)
-  var refracted = false
-  var discriminant = 1.0 - niOverNt * niOverNt * (1-dt-dt)
-  var tmp = multConst(subVec3(uv, multConst(n, dt)), niOverNt)
+  var discriminant = 1.0 - niOverNt * niOverNt * (1-dt*dt)
   if (discriminant > 0){
-    var refracted = subVec3(tmp, multConst(n, Math.sqrt(discriminant)))
+    var z = multConst(n, dt)
+    var a = subVec3(uv, z)
+    var b = multConst(a, niOverNt)
+    var c = multConst(n, Math.sqrt(discriminant))
+    var refracted = subVec3(b, c)
     return refracted
   }
-  return refracted
+}
+
+function reflect(v, n){
+  //v - 2 * dot(v,n)*n
+  var a = dot(v, n)
+  var tmp = 2*a
+  var b = multConst(n, tmp)
+  return subVec3(v, b)
 }
 
 function schlick(cosine, ref_idx){
-  var r0 = (1-ref_idx) / (1+ref_idx)
+  var r0 = (1 - ref_idx) / (1 + ref_idx)
   r0 = r0 * r0
-  return r0 + (1-r0) * Math.pow(1-cosine, 5)
+  return r0 + (1 - r0) * Math.pow((1-cosine), 5)
 }
 
 //camera
@@ -186,12 +194,13 @@ function color(r, scene, depth){
   var hitSomething = hit(scene, r, 0.001, Number.MAX_VALUE)
   if (hitSomething) {
     var scattered = record.mat.scatter(r)
-    if (depth < 50 && scattered != false) {
-      var a = multVec3(record.mat.attenuation, color(scattered, scene, depth + 1))
-      return a
+
+    if (depth < 50 && scattered){
+      var tmp = multVec3(record.mat.attenuation, color(scattered, scene, depth+1))
+      return tmp
     }
     else {
-      return new vec3(0,0,0)
+      return new vec3([0,0,0])
     }
   }
   else {
