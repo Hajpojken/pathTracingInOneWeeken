@@ -1,9 +1,9 @@
 var c = document.getElementById("canvas")
 var ctx = c.getContext("2d")
 var mix = 0.50000
-var nx = 800
-var ny = 400
-var passes = 100
+var nx = 2000
+var ny = 1000
+var passes = 10
 var id = ctx.createImageData(nx,ny)
 
 var frames = document.getElementById("progress")
@@ -12,20 +12,26 @@ var loops = 1
 var rendertime = document.getElementById('time')
 
 function main () {
-  var cam = new camera()
+  //camera(lookfrom, lookat, vup, vfov, aspect)
+  var lookfrom = new vec3([-3,3,2])
+  var lookat =  new vec3([0,0,-1])
+  var dist_to_focus = length(subVec3(lookfrom, lookat))
+  var aperture = 2.0
+  var cam = new camera(lookfrom, lookat, new vec3([0,1,0]), 20, nx/ny, aperture, dist_to_focus)
   var objects = []
-  objects[0] = new sphere(new vec3([0,-100.5,-1]), 100, new lambertian(new vec3([0.8, 0.8, 0.0])))
-  objects[2] = new sphere(new vec3([-1,0,-1]), 0.5, new dieletric(1.5))
-  objects[1] = new sphere(new vec3([-1,0,-1]), -0.45, new dieletric(1.5))
-  objects[3] = new sphere(new vec3([1,0,-1]), 0.5, new metalMaterial(new vec3([0.8, 0.6, 0.2]), 0))
-  objects[4] = new sphere(new vec3([0,0,-1]), 0.5, new lambertian(new vec3([0.1, 0.2, 0.5])))
+
+  objects.push(new sphere(new vec3([0,-1000.5,-1]), 1000, new lambertian(new vec3([0.8, 0.8, 0.0]))))
+  objects.push(new sphere(new vec3([-1.05,0,-1]), 0.5, new dieletric(1.5)))
+  objects.push(new sphere(new vec3([-1.05,0,-1]), -0.45, new dieletric(1.5)))
+  objects.push(new sphere(new vec3([1.05,0,-1]), 0.5, new metalMaterial(new vec3([0.8, 0.2, 0]),0.1)))
+  objects.push(new sphere(new vec3([0,0,-1]), 0.5, new lambertian(new vec3([0.1, 0.2, 0.5]))))
   render(nx, ny, objects, cam)
 }
 
 function render(nx, ny, scene, cam, old){
   var time = Date.now()
   var image = []
-  for (var j = 0; j < ny; j++) {
+  for (var j = ny; j > 0; j--) {
     for (var i = 0; i < nx; i++) {
       var col = new vec3([0,0,0])
       for (var s = 0; s < passes; s++){
@@ -44,9 +50,10 @@ function render(nx, ny, scene, cam, old){
       var tmpArr = []
 
       if (loops != 1){
-        tmpArr[0] = ir*mix + old[j*nx + i][0]*(1-mix)
-        tmpArr[1] = ib*mix + old[j*nx + i][1]*(1-mix)
-        tmpArr[2] = ig*mix + old[j*nx + i][2]*(1-mix)
+        var tmp = old.length-nx*j+i
+        tmpArr[0] = ir*mix + old[tmp][0]*(1-mix)
+        tmpArr[1] = ib*mix + old[tmp][1]*(1-mix)
+        tmpArr[2] = ig*mix + old[tmp][2]*(1-mix)
         tmpArr[3] = 255
         image.push(tmpArr)
       }
@@ -62,139 +69,24 @@ function render(nx, ny, scene, cam, old){
   }
   for(var k = 0; k<id.data.length; k+=4){
     var l = k/4
-    id.data[k+0] = image[image.length - l - 1][0]
-    id.data[k+1] = image[image.length - l - 1][1]
-    id.data[k+2] = image[image.length - l - 1][2]
-    id.data[k+3] = image[image.length - l - 1][3]
+    id.data[k+0] = image[l][0]
+    id.data[k+1] = image[l][1]
+    id.data[k+2] = image[l][2]
+    id.data[k+3] = image[l][3]
   }
 
   ctx.putImageData(id, 0, 0)
   frames.innerHTML = "Frames: " + loops
   rendertime.innerHTML = "Last frame: " + (Date.now() - time)/1000 + "s"
-
   loops+=1
   mix = 1/(loops+1)
-  //window.requestAnimationFrame(() => render(nx, ny, scene, cam, image))
+  window.requestAnimationFrame(() => render(nx, ny, scene, cam, image))
 }
 
-//vector constructor
-function vec3 (v) {
-  this.x = v[0]
-  this.y = v[1]
-  this.z = v[2]
-}
-
-//materials
-function lambertian(albedo){
-  this.attenuation = albedo || new vec3([1.0, 1.0, 1.0])
-  this.scatter = function(r){
-    var target = addVec3(addVec3(record.p, record.normal),randomInUnitSphere())
-    var tmp = subVec3(target, record.p)
-    var scattered = new ray(record.p, tmp)
-    return scattered
-  }
-}
-
-function metalMaterial(albedo, fuzz){
-  this.attenuation = albedo || new vec3([1.0, 1.0, 1.0])
-  if(fuzz < 1){
-    this.fuzz = fuzz
-  }
-  else{
-    this.fuzz = 0
-  }
-
-  this.scatter = function(r){
-    var reflected = reflect(unitVector(r.direction), record.normal)
-    var a = multConst(randomInUnitSphere(), fuzz)
-    var tmp = addVec3(reflected, a)
-    var scattered = new ray(record.p, tmp)
-    if(dot(scattered.direction, record.normal) > 0){
-      return scattered
-    }
-  }
-}
-
-function dieletric(ri){
-  this.snell = ri
-  this.attenuation = new vec3([1.0, 1.0, 1.0])
-  this.scatter = function(r){
-    if(dot(r.direction, record.normal) > 0){
-      var outwardNormal = new vec3([-record.normal.x, -record.normal.y, -record.normal.z])
-      var niOverNt = ri
-      var cosine = ri * dot(r.direction, record.normal) / length(r.direction)
-    }
-    else{
-      var outwardNormal = record.normal
-      var niOverNt = 1.0/ri
-      var cosine = (-dot(r.direction, record.normal)) / length(r.direction)
-    }
-
-    var refracted = refract(r.direction, outwardNormal, niOverNt)
-
-    if(refracted){
-      var reflect_prob = schlick(cosine, ri)
-    }
-    else{
-      var reflect_prob = 1.0
-    }
-
-    if(Math.random() < reflect_prob){
-      var reflected = reflect(r.direction, record.normal)
-      scattered = new ray(record.p, reflected)
-    }
-    else {
-      scattered = new ray(record.p, refracted)
-    }
-    return scattered
-  }
-}
-
-function refract(v, n, niOverNt){
-  var uv = unitVector(v)
-  var dt = dot(uv, n)
-  var discriminant = 1.0 - niOverNt * niOverNt * (1-dt*dt)
-  if (discriminant > 0){
-    var z = multConst(n, dt)
-    var a = subVec3(uv, z)
-    var b = multConst(a, niOverNt)
-    var c = multConst(n, Math.sqrt(discriminant))
-    var refracted = subVec3(b, c)
-    return refracted
-  }
-}
-
-function reflect(v, n){
-  //v - 2 * dot(v,n)*n
-  var a = dot(v, n)
-  var tmp = 2*a
-  var b = multConst(n, tmp)
-  return subVec3(v, b)
-}
-
-function schlick(cosine, ref_idx){
-  var r0 = (1 - ref_idx) / (1 + ref_idx)
-  r0 = r0 * r0
-  return r0 + (1 - r0) * Math.pow((1-cosine), 5)
-}
-
-//camera
-function camera(){
-  var lowerLeftCorner = new vec3([(-2.0),(-1.0),(-1.0)])
-  var horizontal = new vec3([4.0, 0.0, 0.0])
-  var vertical = new vec3([0.0, 2.0, 0.0])
-  var origin = new vec3([0.0, 0.0, 0.0])
-
-  this.getRay = function(u,v){
-    return new ray(origin, addVec3(addVec3(lowerLeftCorner, multConst(horizontal, u)), multConst(vertical, v)))
-  }
-}
-//
 function color(r, scene, depth){
   var hitSomething = hit(scene, r, 0.001, Number.MAX_VALUE)
   if (hitSomething) {
     var scattered = record.mat.scatter(r)
-
     if (depth < 50 && scattered){
       var tmp = multVec3(record.mat.attenuation, color(scattered, scene, depth+1))
       return tmp
@@ -226,11 +118,14 @@ function hit(scene, r, t_min, t_max) {
   var hitAnything = false
 
   for (var i=0; i < scene.length; i++) {
-    if(scene[i].hit(r, t_min, t_max) > 0.0) {
+    if(scene[i].hit(r, t_min, t_max)) {
       if(tempHitRecord.t < closestT) {
+        closestT = tempHitRecord.t
+        record.setT(tempHitRecord.t)
+        record.setP(tempHitRecord.p)
+        record.setNormal(tempHitRecord.normal)
+        record.setMat(tempHitRecord.mat)
         hitAnything = true
-        tempHitRecord.setT(record.t)
-        record.setT(closestT)
       }
     }
   }
@@ -260,104 +155,12 @@ function createHitRecord(t,p, normal, mat){
 var tempHitRecord = new createHitRecord()
 var record = new createHitRecord()
 
-//Sphere
-function sphere(center, radius, material){
-  this.center = center
-  this.radius = radius
-  this.material = material
-
-  this.hit = function(r, t_min, t_max) {
-    var oc = subVec3(r.origin, center)
-    var a = dot(r.direction, r.direction)
-    var b = dot(oc, r.direction)
-    var c = dot(oc, oc) - radius * radius
-    var discriminant = (b * b) - (a * c)
-    if (discriminant > 0) {
-      var temp = (((-b) - Math.sqrt(discriminant)) / a)
-      if (temp < t_max && temp > t_min) {
-        record.setT(temp)
-        record.setP(r.pointAtParameter(record.t))
-        var tempNormal = divConst(subVec3(record.p, center),radius)
-        record.setNormal(tempNormal)
-        record.setMat(material)
-        return true
-      }
-      temp = (((-b) + Math.sqrt(discriminant)) / a)
-      if (temp < t_max && temp > t_min) {
-        record.setT(temp)
-        record.setP(r.pointAtParameter(record.t))
-        var tempNormal = divConst(subVec3(record.p, center),radius)
-        record.setNormal(tempNormal)
-        record.setMat(material)
-        return true
-      }
-    }
-    return false
-  }
-}
-
 randomInUnitSphere = function(){
   var tmp = new vec3([-1,-1,-1])
   do {
     var p = subVec3(multConst(new vec3([Math.random(), Math.random(), Math.random()]), 2.0), tmp)
   } while(length(squared(p)) >= 1.0)
   return p
-}
-
-//----------------------------------------------------------------------------
-//Vector Operations
-
-unitVector = function(vec) {
-  var k = 1/Math.sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z)
-  return new vec3([vec.x * k, vec.y * k, vec.z * k])
-}
-
-addVec3 = function(vec3a, vec3b){
-  return new vec3([vec3a.x + vec3b.x, vec3a.y + vec3b.y, vec3a.z + vec3b.z])
-}
-
-subVec3 = function(vec3a, vec3b){
-  return new vec3([vec3a.x - vec3b.x, vec3a.y - vec3b.y, vec3a.z - vec3b.z])
-}
-
-multVec3 = function(vec3a, vec3b){
-  return new vec3([vec3a.x * vec3b.x, vec3a.y * vec3b.y, vec3a.z * vec3b.z])
-}
-
-divVec3 = function(vec3a, vec3b){
-  return new vec3([vec3a.x / vec3b.x, vec3a.y / vec3b.y, vec3a.z / vec3b.z])
-}
-
-multConst = function(vec, t){
-  return new vec3([vec.x * t, vec.y * t, vec.z * t])
-}
-
-divConst = function(vec, t){
-  return new vec3([vec.x / t, vec.y / t, vec.z / t])
-}
-
-length = function(vec) {
-  return Math.sqrt(Math.pow(vec.x,2) + Math.pow(vec.y,2) + Math.pow(vec.z,2));
-}
-
-squared = function(vec) {
-  return Math.pow(vec.x, 2) + Math.pow(vec.y, 2) + Math.pow(vec.z, 2)
-}
-
-makeUnitVector = function(vec) {
-  return divConst(vec, length(vec))
-}
-
-dot = function(vec3a, vec3b){
-  return vec3a.x * vec3b.x + vec3a.y * vec3b.y + vec3a.z * vec3b.z
-}
-
-cross = function(vec3a, vec3b){
-  return new vec3(
-    vec3a.y * vec3b.z - vec3a.z*vec3b.y,
-    -(vec3a.x * vec3b.z - vec3a.z * vec3b.x),
-    vec3a.x * vec3b.y - vec3a.y * vec3b.x
-  )
 }
 
 main()
