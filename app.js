@@ -1,8 +1,8 @@
 var c = document.getElementById("canvas")
 var ctx = c.getContext("2d")
 var mix = 0.50000
-var nx = 2000
-var ny = 1000
+var nx = 800
+var ny = 400
 var passes = 10
 var id = ctx.createImageData(nx,ny)
 
