@@ -1,30 +1,49 @@
 var c = document.getElementById("canvas")
 var ctx = c.getContext("2d")
-var mix = 0.50000
 var nx = 800
 var ny = 400
-var passes = 10
+var passes = 1
+var mix
 var id = ctx.createImageData(nx,ny)
 
 var frames = document.getElementById("progress")
-var loops = 1
+var loops = 0
 
 var rendertime = document.getElementById('time')
 
 function main () {
   //camera(lookfrom, lookat, vup, vfov, aspect)
-  var lookfrom = new vec3([-3,3,2])
-  var lookat =  new vec3([0,0,-1])
+  var lookfrom = new vec3([12,2,2])
+  var lookat =  new vec3([0,0,0])
   var dist_to_focus = length(subVec3(lookfrom, lookat))
-  var aperture = 2.0
+  var aperture = 0.1
   var cam = new camera(lookfrom, lookat, new vec3([0,1,0]), 20, nx/ny, aperture, dist_to_focus)
   var objects = []
 
-  objects.push(new sphere(new vec3([0,-1000.5,-1]), 1000, new lambertian(new vec3([0.8, 0.8, 0.0]))))
-  objects.push(new sphere(new vec3([-1.05,0,-1]), 0.5, new dieletric(1.5)))
-  objects.push(new sphere(new vec3([-1.05,0,-1]), -0.45, new dieletric(1.5)))
-  objects.push(new sphere(new vec3([1.05,0,-1]), 0.5, new metalMaterial(new vec3([0.8, 0.2, 0]),0.1)))
-  objects.push(new sphere(new vec3([0,0,-1]), 0.5, new lambertian(new vec3([0.1, 0.2, 0.5]))))
+  objects.push(new sphere(new vec3([0,-1000,0]), 1000, new lambertian(new vec3([0.5, 0.5, 0.5]))))
+
+  for(var a = -11; a < 11; a++){
+    for(var b = -11; b < 11; b++){
+      var choose_mat = Math.random()
+      var center = new vec3([a+0.9*Math.random(), 0.2, b+Math.random()])
+      if(length(subVec3(center, new vec3([4,0.2,0]))) > 0.9){
+        if(choose_mat < 0.8){ //diffuse
+          objects.push(new sphere(center, 0.2, new lambertian(new vec3([Math.random()*Math.random(), Math.random()*Math.random(), Math.random()*Math.random()]))))
+        }
+        else if(choose_mat < 0.95){ //metal
+          objects.push(new sphere(center, 0.2, new metalMaterial(new vec3([0.5*(1 + Math.random()), 0.5*(1 + Math.random()), 0.5*(1 + Math.random())]), 0.5 * Math.random())))
+        }
+        else{ //glass
+          objects.push(new sphere(center, 0.2, new dieletric(1.5)))
+        }
+      }
+    }
+  }
+
+  objects.push(new sphere(new vec3([0,1,0]), 1.0, new dieletric(1.5)))
+  objects.push(new sphere(new vec3([4,1,0]), 1.0, new metalMaterial(new vec3([0.7, 0.6, 0.5]),0)))
+  objects.push(new sphere(new vec3([-4,1,0]), 1.0, new lambertian(new vec3([0.4, 0.2, 0.1]))))
+
   render(nx, ny, objects, cam)
 }
 
@@ -49,7 +68,7 @@ function render(nx, ny, scene, cam, old){
 
       var tmpArr = []
 
-      if (loops != 1){
+      if (loops != 0){
         var tmp = old.length-nx*j+i
         tmpArr[0] = ir*mix + old[tmp][0]*(1-mix)
         tmpArr[1] = ib*mix + old[tmp][1]*(1-mix)
@@ -80,6 +99,7 @@ function render(nx, ny, scene, cam, old){
   rendertime.innerHTML = "Last frame: " + (Date.now() - time)/1000 + "s"
   loops+=1
   mix = 1/(loops+1)
+  //console.log((i+j*nx)/nx*ny + "%")
   window.requestAnimationFrame(() => render(nx, ny, scene, cam, image))
 }
 

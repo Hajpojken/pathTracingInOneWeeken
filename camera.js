@@ -1,3 +1,10 @@
+function randomInUnitDisk() {
+  do {
+    var p = subVec3(multConst(new vec3([Math.random(), Math.random(), 0]), 2), new vec3([1,1,0]))
+  } while (dot(p,p) >= 1.0)
+  return p
+}
+
 function camera(lookfrom, lookat, vup, vfov, aspect, aperture, focus_dist){
   var lens_radius = aperture / 2
   var theta = vfov * Math.PI/180
@@ -9,18 +16,18 @@ function camera(lookfrom, lookat, vup, vfov, aspect, aperture, focus_dist){
   var u = unitVector(cross(vup, w))
   var v = cross(w, u)
 
-  var a = multConst(u, half_width) //2
-  var b = multConst(v, half_height) //3
+  var a = multConst(u, half_width*focus_dist) //2
+  var b = multConst(v, half_height*focus_dist) //3
   var c = subVec3(origin, a)
   var d = subVec3(c, b)
+  var e = multConst(w, focus_dist)
 
-  var lowerLeftCorner = subVec3(d, w)
-  var horizontal = multConst(u, 2*half_width)
-  var vertical = multConst(v, 2*half_height)
+  var lowerLeftCorner = subVec3(d, e)
+  var horizontal = multConst(u, 2*half_width*focus_dist)
+  var vertical = multConst(v, 2*half_height*focus_dist)
 
   this.getRay = function(s, t){
-    debugger
-    var rd = lens_radius * randomInUnitDisk()
+    var rd = multConst(randomInUnitDisk(), lens_radius)
 
     var a = multConst(u, rd.x)
     var b = multConst(v, rd.y)
@@ -32,18 +39,8 @@ function camera(lookfrom, lookat, vup, vfov, aspect, aperture, focus_dist){
     var d = addVec3(b, c)
     var e = subVec3(d, origin)
     var f = subVec3(e, offset)
-
     var z = addVec3(origin, offset)
 
-    return new ray(origin, e)
+    return new ray(z, f)
   }
-}
-
-function randomInUnitDisk() {
-  do {
-    var a = new vec3([Math.random(), Math.random(), 0])
-    var b = multConst(a, 2)
-    var p = subVec3(b, new vec3([1,1,0]))
-  } while (dot(p,p) >= 1.0)
-  return p
 }
